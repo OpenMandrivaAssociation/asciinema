@@ -4,7 +4,7 @@
 Summary: Terminal session recorder
 Name:    asciinema
 Version: 2.4.0
-Release: 1
+Release: 2
 License: GPLv3
 Url:     https://%{upstream}.github.io/%{name}
 Source0: %{gitbase}/%{upstream}/%{name}/archive/refs/tags/v%{version}.tar.gz
