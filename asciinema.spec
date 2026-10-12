@@ -1,41 +1,53 @@
-%global upstream asciinema
-%global gitbase  https://github.com
-
-Summary: Terminal session recorder
-Name:    asciinema
-Version: 3.2.1
-Release: 2
-License: GPLv3
-Group: Development/Other
-Url:     https://%{upstream}.github.io/%{name}
-Source0: %{gitbase}/%{upstream}/%{name}/archive/refs/tags/v%{version}.tar.gz
-
-BuildArch: noarch
-
-BuildRequires: pkgconfig(python3)
-BuildRequires: python-wheel
-BuildRequires: python-pip
+Name:		asciinema
+Version:	3.2.1
+Release:	2
+Summary:	Terminal session recorder
+License:	GPLv3
+Group:		Development/Other
+URL:		https://docs.asciinema.org/
+Source0:	https://github.com/asciinema/asciinema/archive/refs/tags/v%{version}.tar.gz
+Source1:	%{name}-%{version}-vendor.tar.xz
+BuildRequires:	cargo
+BuildRequires:	rust
 
 %description
-asciinema lets you easily record terminal sessions
-and replay them in a terminal as well as in a web browser.
+asciinema records terminal sessions and plays them back. Version 3 is a
+Rust program. The crates are vendored because package builds have no network.
 
 %prep
-%autosetup -n %{name}-%{version}
+%autosetup -n %{name}-%{version} -a1
+mkdir -p .cargo
+cat >> .cargo/config.toml << 'EOF'
+
+[net]
+offline = true
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+EOF
 
 %build
-mkdir wheels
-pip wheel --wheel-dir wheels --no-deps --no-build-isolation --verbose .
+export CARGO_NET_OFFLINE=true
+export CARGO_HOME=$PWD/.cargo
+# rpm's find-debuginfo strips the binary. The upstream profile strips it first.
+export CARGO_PROFILE_RELEASE_STRIP=false
+export CARGO_PROFILE_RELEASE_DEBUG=line-tables-only
+cargo build --release --offline --locked
+cargo tree --offline --locked --edges no-build,no-dev,no-proc-macro --prefix none --format '{l}: {p}' \
+	| sed -e "s: ($PWD[^)]*)::g" -e 's: / :/:g' -e 's:/: OR :g' \
+	| sort -u > LICENSES.dependencies
+test -n "$(find target/release/build -type f -path '*/out/man/*.1' -print -quit)"
 
 %install
-pip install --root=%{buildroot} --no-deps --verbose --ignore-installed --no-warn-script-location --no-index --no-cache-dir --find-links wheels wheels/*.whl
-
-rm %{buildroot}%{_docdir}/%{name}/{CODE_OF_CONDUCT,CONTRIBUTING}.md
+install -Dm755 target/release/asciinema %{buildroot}%{_bindir}/asciinema
+find target/release/build -type f -path '*/out/man/*.1' -print0 |
+	xargs -0 -I{} install -Dm644 {} %{buildroot}%{_mandir}/man1/
 
 %files
-%license LICENSE
-%doc %{_docdir}/%{name}
-%{_bindir}/%{name}
-%{_mandir}/man*/%{name}.*
-%{py_sitedir}/%{name}
-%{py_sitedir}/%{name}-%{version}.dist-info
+%license LICENSE LICENSES.dependencies
+%doc README.md
+%{_bindir}/asciinema
+%{_mandir}/man1/asciinema*.1*
