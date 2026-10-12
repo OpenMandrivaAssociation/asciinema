@@ -43,8 +43,9 @@ test -n "$(find target/release/build -type f -path '*/out/man/*.1' -print -quit)
 
 %install
 install -Dm755 target/release/asciinema %{buildroot}%{_bindir}/asciinema
+mkdir -p %{buildroot}%{_mandir}/man1
 find target/release/build -type f -path '*/out/man/*.1' -print0 |
-	xargs -0 -I{} install -Dm644 {} %{buildroot}%{_mandir}/man1/
+	xargs -0 -I{} install -m644 {} %{buildroot}%{_mandir}/man1/
 
 %files
 %license LICENSE LICENSES.dependencies
